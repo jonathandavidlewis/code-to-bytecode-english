@@ -164,16 +164,17 @@ export function SourceEditor({ source, onChange, statements, parseError, hovered
                 ? STATEMENT_HOVER_BG_COLOR[bandKey]
                 : ZEBRA_COLORS[bandKey].bg
               : "bg-transparent"
-            const borderColorClass = isHovered
-              ? STATEMENT_HOVER_BORDER[bandKey].className
-              : STATEMENT_HOVER_BORDER[bandKey].inactiveClassName
+            const borderStyle = isHovered
+              ? STATEMENT_HOVER_BORDER[bandKey].style
+              : STATEMENT_HOVER_BORDER[bandKey].inactiveStyle
 
             return (
               <div
                 key={groupIndex}
                 data-statement-id={group.statementId ?? undefined}
                 data-color-band={group.colorBand ?? undefined}
-                className={`${groupBgClass} ${STATEMENT_BORDER_BASE} ${borderColorClass}`}
+                className={`${groupBgClass} ${STATEMENT_BORDER_BASE}`}
+                style={borderStyle}
               >
                 {group.lines.map((line) => {
                   const height = lineHeights[line.lineIndex] || 24

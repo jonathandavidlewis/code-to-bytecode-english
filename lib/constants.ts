@@ -10,18 +10,20 @@ export const STATEMENT_HOVER_BG_COLOR = {
   band1: "bg-amber-100",
 } as const;
 
-// Base border class - using ring-inset which doesn't affect layout (unlike border)
-export const STATEMENT_BORDER_BASE = "ring-inset";
+// Base border class - empty since we use box-shadow which doesn't affect layout
+export const STATEMENT_BORDER_BASE = "";
 
+// Using box-shadow for top and bottom borders only (doesn't affect layout)
+// Using style objects for reliable rendering (Tailwind arbitrary values can be unreliable)
 export const STATEMENT_HOVER_BORDER = {
   band0: {
-    className: "ring-1 ring-sky-400",
-    inactiveClassName: "ring-0",
+    style: { boxShadow: "inset 0 1px 0 0 #38bdf8, inset 0 -1px 0 0 #38bdf8" },
+    inactiveStyle: {},
     stroke: "#38bdf8", // sky-400 hex for SVG
   },
   band1: {
-    className: "ring-1 ring-amber-400",
-    inactiveClassName: "ring-0",
+    style: { boxShadow: "inset 0 1px 0 0 #fbbf24, inset 0 -1px 0 0 #fbbf24" },
+    inactiveStyle: {},
     stroke: "#fbbf24", // amber-400 hex for SVG
   },
 } as const;

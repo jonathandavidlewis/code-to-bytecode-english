@@ -52,16 +52,17 @@ export const EnglishViewer = forwardRef<HTMLDivElement, EnglishViewerProps>(func
             const bgClass = isHovered
               ? STATEMENT_HOVER_BG_COLOR[bandKey]
               : ZEBRA_COLORS[bandKey].bg
-            const borderColorClass = isHovered
-              ? STATEMENT_HOVER_BORDER[bandKey].className
-              : STATEMENT_HOVER_BORDER[bandKey].inactiveClassName
+            const borderStyle = isHovered
+              ? STATEMENT_HOVER_BORDER[bandKey].style
+              : STATEMENT_HOVER_BORDER[bandKey].inactiveStyle
 
             return (
               <div
                 key={group.statementId}
                 data-statement-id={group.statementId}
                 data-color-band={group.colorBand}
-                className={`${bgClass} ${STATEMENT_BORDER_BASE} ${borderColorClass}`}
+                className={`${bgClass} ${STATEMENT_BORDER_BASE}`}
+                style={borderStyle}
                 onMouseEnter={() => onHoverStatement(group.statementId)}
                 onMouseLeave={() => onHoverStatement(null)}
               >

@@ -32,16 +32,17 @@ export function AstViewer({ statements, hoveredStatementId, onHoverStatement }: 
               const bgClass = isHovered
                 ? STATEMENT_HOVER_BG_COLOR[bandKey]
                 : ZEBRA_COLORS[bandKey].bg
-              const borderColorClass = isHovered
-                ? STATEMENT_HOVER_BORDER[bandKey].className
-                : STATEMENT_HOVER_BORDER[bandKey].inactiveClassName
+              const borderStyle = isHovered
+                ? STATEMENT_HOVER_BORDER[bandKey].style
+                : STATEMENT_HOVER_BORDER[bandKey].inactiveStyle
 
               return (
                 <div
                   key={statement.id}
                   data-statement-id={statement.id}
                   data-color-band={statement.colorBand}
-                  className={`border-b border-border/50 px-2 py-1 ${bgClass} ${STATEMENT_BORDER_BASE} ${borderColorClass}`}
+                  className={`border-b border-border/50 px-2 py-1 ${bgClass} ${STATEMENT_BORDER_BASE}`}
+                  style={borderStyle}
                   onMouseEnter={() => onHoverStatement(statement.id)}
                   onMouseLeave={() => onHoverStatement(null)}
                 >
