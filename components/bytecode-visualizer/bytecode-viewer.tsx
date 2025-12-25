@@ -2,17 +2,20 @@
 
 import type React from "react"
 
-import { forwardRef } from "react"
+import { forwardRef, useCallback } from "react"
 import type { InstructionLine, StatementBlock } from "@/lib/bytecode/types"
+import type { LineHeightSync } from "@/hooks/use-line-height-sync"
 
 interface BytecodeViewerProps {
   lines: InstructionLine[]
   statements: StatementBlock[]
   onScroll?: (scrollTop: number) => void
+  lineHeightSync?: LineHeightSync
+  columnId?: string
 }
 
 export const BytecodeViewer = forwardRef<HTMLDivElement, BytecodeViewerProps>(function BytecodeViewer(
-  { lines, statements, onScroll },
+  { lines, statements, onScroll, lineHeightSync, columnId = "bytecode" },
   ref,
 ) {
   // Group lines by statement
@@ -21,6 +24,9 @@ export const BytecodeViewer = forwardRef<HTMLDivElement, BytecodeViewerProps>(fu
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     onScroll?.(e.currentTarget.scrollTop)
   }
+
+  // Track global line index across groups
+  let globalLineIndex = 0
 
   return (
     <div className="flex h-full flex-col">
@@ -34,32 +40,47 @@ export const BytecodeViewer = forwardRef<HTMLDivElement, BytecodeViewerProps>(fu
             No instructions to display
           </div>
         ) : (
-          groups.map((group) => (
-            <div
-              key={group.statementId}
-              data-statement-id={group.statementId}
-              data-color-band={group.colorBand}
-              className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}
-            >
-              {group.lines.map((line, index) => (
-                <div key={index} className="h-6 px-3">
-                  <span className="text-slate-500">{String(index).padStart(2, "0")}</span>
-                  <span className="mx-2 text-slate-300">|</span>
-                  <span
-                    className={
-                      line.op === "UNSUPPORTED"
-                        ? "text-orange-600"
-                        : line.op === "NOOP"
-                          ? "text-slate-400"
-                          : "text-foreground"
-                    }
-                  >
-                    {line.text}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))
+          groups.map((group) => {
+            const groupStartIndex = globalLineIndex
+            globalLineIndex += group.lines.length
+
+            return (
+              <div
+                key={group.statementId}
+                data-statement-id={group.statementId}
+                data-color-band={group.colorBand}
+                className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}
+              >
+                {group.lines.map((line, index) => {
+                  const lineIndex = groupStartIndex + index
+                  const syncedHeight = lineHeightSync?.getLineHeight(lineIndex)
+
+                  return (
+                    <div
+                      key={index}
+                      ref={(el) => lineHeightSync?.setLineRef(columnId, lineIndex, el)}
+                      className="min-h-6 px-3 py-0.5"
+                      style={syncedHeight ? { minHeight: syncedHeight } : undefined}
+                    >
+                      <span className="text-slate-500">{String(lineIndex).padStart(2, "0")}</span>
+                      <span className="mx-2 text-slate-300">|</span>
+                      <span
+                        className={
+                          line.op === "UNSUPPORTED"
+                            ? "text-orange-600"
+                            : line.op === "NOOP"
+                              ? "text-slate-400"
+                              : "text-foreground"
+                        }
+                      >
+                        {line.text}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })
         )}
       </div>
     </div>

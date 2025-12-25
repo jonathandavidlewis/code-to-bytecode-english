@@ -9,6 +9,7 @@ import { BytecodeViewer } from "./bytecode-viewer"
 import { EnglishViewer } from "./english-viewer"
 import { GapConnector } from "./gap-connector"
 import { GAP_BETWEEN_COLUMNS } from "@/lib/constants"
+import { useLineHeightSync } from "@/hooks/use-line-height-sync"
 
 const DEFAULT_SOURCE = `// Try editing this code!
 const num = 6;
@@ -65,6 +66,9 @@ export function BytecodeVisualizer() {
     return compile(statements)
   }, [statements])
 
+  // Sync line heights between bytecode and English columns
+  const lineHeightSync = useLineHeightSync(compileResult.lines.length)
+
   // Get parse error if any
   const parseError: ParseError | null = parseStatus.kind === "invalid" ? parseStatus.error : null
 
@@ -114,7 +118,7 @@ export function BytecodeVisualizer() {
 
         {/* Column 3: Bytecode Viewer */}
         <div ref={bytecodeColumnRef} className="overflow-hidden">
-          <BytecodeViewer lines={compileResult.lines} statements={statements} />
+          <BytecodeViewer lines={compileResult.lines} statements={statements} lineHeightSync={lineHeightSync} columnId="bytecode" />
         </div>
 
         {/* Gap 3: Bytecode to English connector */}
@@ -127,7 +131,7 @@ export function BytecodeVisualizer() {
 
         {/* Column 4: English Viewer */}
         <div ref={englishColumnRef} className="overflow-hidden">
-          <EnglishViewer lines={compileResult.lines} statements={statements} />
+          <EnglishViewer lines={compileResult.lines} statements={statements} lineHeightSync={lineHeightSync} columnId="english" />
         </div>
       </div>
     </div>

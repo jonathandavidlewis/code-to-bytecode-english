@@ -4,15 +4,18 @@ import type React from "react"
 
 import { forwardRef } from "react"
 import type { InstructionLine, StatementBlock } from "@/lib/bytecode/types"
+import type { LineHeightSync } from "@/hooks/use-line-height-sync"
 
 interface EnglishViewerProps {
   lines: InstructionLine[]
   statements: StatementBlock[]
   onScroll?: (scrollTop: number) => void
+  lineHeightSync?: LineHeightSync
+  columnId?: string
 }
 
 export const EnglishViewer = forwardRef<HTMLDivElement, EnglishViewerProps>(function EnglishViewer(
-  { lines, statements, onScroll },
+  { lines, statements, onScroll, lineHeightSync, columnId = "english" },
   ref,
 ) {
   // Group lines by statement
@@ -21,6 +24,9 @@ export const EnglishViewer = forwardRef<HTMLDivElement, EnglishViewerProps>(func
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     onScroll?.(e.currentTarget.scrollTop)
   }
+
+  // Track global line index across groups
+  let globalLineIndex = 0
 
   return (
     <div className="flex h-full flex-col">
@@ -34,29 +40,41 @@ export const EnglishViewer = forwardRef<HTMLDivElement, EnglishViewerProps>(func
             No narration to display
           </div>
         ) : (
-          groups.map((group) => (
-            <div
-              key={group.statementId}
-              data-statement-id={group.statementId}
-              data-color-band={group.colorBand}
-              className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}
-            >
-              {group.lines.map((line, index) => (
-                <div
-                  key={index}
-                  className={`h-6 px-3 ${
-                    line.op === "UNSUPPORTED"
-                      ? "text-orange-600"
-                      : line.op === "NOOP"
-                        ? "italic text-slate-400"
-                        : "text-foreground"
-                  }`}
-                >
-                  {line.english}
-                </div>
-              ))}
-            </div>
-          ))
+          groups.map((group) => {
+            const groupStartIndex = globalLineIndex
+            globalLineIndex += group.lines.length
+
+            return (
+              <div
+                key={group.statementId}
+                data-statement-id={group.statementId}
+                data-color-band={group.colorBand}
+                className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}
+              >
+                {group.lines.map((line, index) => {
+                  const lineIndex = groupStartIndex + index
+                  const syncedHeight = lineHeightSync?.getLineHeight(lineIndex)
+
+                  return (
+                    <div
+                      key={index}
+                      ref={(el) => lineHeightSync?.setLineRef(columnId, lineIndex, el)}
+                      className={`min-h-6 px-3 py-0.5 ${
+                        line.op === "UNSUPPORTED"
+                          ? "text-orange-600"
+                          : line.op === "NOOP"
+                            ? "italic text-slate-400"
+                            : "text-foreground"
+                      }`}
+                      style={syncedHeight ? { minHeight: syncedHeight } : undefined}
+                    >
+                      {line.english}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })
         )}
       </div>
     </div>
