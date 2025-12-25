@@ -1,6 +1,17 @@
 import type { Node as BabelNode } from "@babel/types"
 import type { StatementBlock, InstructionLine, CompileResult, CompileDiagnostic } from "./types"
 
+// Label counter for generating unique labels
+let labelCounter = 0
+function generateLabel(prefix: string): string {
+  return `${prefix}_${labelCounter++}`
+}
+
+// Reset label counter (useful for testing)
+export function resetLabelCounter(): void {
+  labelCounter = 0
+}
+
 // English narration templates
 const narrations: Record<string, (args: string[]) => string> = {
   PUSH_CONST: (args) => `Push the constant value ${args[0]} onto the stack.`,
@@ -26,6 +37,19 @@ const narrations: Record<string, (args: string[]) => string> = {
   NOOP: () => "No operation - this statement has no effect.",
   PUSH_UNDEFINED: () => "Push the value 'undefined' onto the stack.",
   PUSH_NULL: () => "Push the value 'null' onto the stack.",
+  // Control flow operations
+  LABEL: (args) => `Mark position '${args[0]}' as a jump target.`,
+  JUMP: (args) => `Jump to position '${args[0]}'.`,
+  JUMP_IF_FALSE: (args) => `Pop the top value; if false, jump to '${args[0]}'.`,
+  // Iterator operations for for-in loops
+  GET_KEYS: () => "Get the enumerable keys of the object on the stack and push an iterator.",
+  ITER_NEXT: (args) => `Get the next key from the iterator and store it in '${args[0]}'.`,
+  ITER_HAS_NEXT: () => "Check if the iterator has more items; push true or false.",
+  // Update operations
+  INCREMENT: (args) => `Increment the value of '${args[0]}' by 1.`,
+  DECREMENT: (args) => `Decrement the value of '${args[0]}' by 1.`,
+  // Array operations
+  CREATE_ARRAY: (args) => `Create a new array with ${args[0]} element(s).`,
 }
 
 function createInstruction(statementId: string, op: string, args: string[] = []): InstructionLine {
@@ -102,12 +126,84 @@ function compileStatement(node: BabelNode, statementId: string, diagnostics: Com
       break
     }
 
-    case "WhileStatement":
-    case "ForStatement":
-    case "ForOfStatement":
+    case "WhileStatement": {
+      const whileStmt = node as BabelNode & {
+        test: BabelNode
+        body: BabelNode
+      }
+      const loopStart = generateLabel("while_start")
+      const loopEnd = generateLabel("while_end")
+
+      // LABEL loop_start
+      lines.push(createInstruction(statementId, "LABEL", [loopStart]))
+      // Compile condition
+      lines.push(...compileExpression(whileStmt.test, statementId, diagnostics))
+      // JUMP_IF_FALSE loop_end
+      lines.push(createInstruction(statementId, "JUMP_IF_FALSE", [loopEnd]))
+      // Compile body
+      lines.push(...compileBlock(whileStmt.body, statementId, diagnostics))
+      // JUMP loop_start
+      lines.push(createInstruction(statementId, "JUMP", [loopStart]))
+      // LABEL loop_end
+      lines.push(createInstruction(statementId, "LABEL", [loopEnd]))
+      break
+    }
+
     case "ForInStatement": {
+      const forInStmt = node as BabelNode & {
+        left: BabelNode
+        right: BabelNode
+        body: BabelNode
+      }
+      const loopStart = generateLabel("forin_start")
+      const loopEnd = generateLabel("forin_end")
+
+      // Get the variable name from left (could be VariableDeclaration or Identifier)
+      let varName: string | null = null
+      if (forInStmt.left.type === "VariableDeclaration") {
+        const decl = forInStmt.left as BabelNode & {
+          declarations: Array<{ id: { type: string; name?: string } }>
+        }
+        if (decl.declarations[0]?.id.type === "Identifier" && decl.declarations[0]?.id.name) {
+          varName = decl.declarations[0].id.name
+          lines.push(createInstruction(statementId, "DECLARE_VAR", [varName]))
+        }
+      } else if (forInStmt.left.type === "Identifier") {
+        const id = forInStmt.left as BabelNode & { name: string }
+        varName = id.name
+      }
+
+      if (varName === null) {
+        lines.push(createInstruction(statementId, "UNSUPPORTED", ["ComplexForInPattern"]))
+        diagnostics.push({ statementId, message: "Complex for-in patterns not supported" })
+        break
+      }
+
+      // Compile the object expression
+      lines.push(...compileExpression(forInStmt.right, statementId, diagnostics))
+      // GET_KEYS - get iterator for object keys
+      lines.push(createInstruction(statementId, "GET_KEYS"))
+      // LABEL loop_start
+      lines.push(createInstruction(statementId, "LABEL", [loopStart]))
+      // ITER_HAS_NEXT - check if more keys
+      lines.push(createInstruction(statementId, "ITER_HAS_NEXT"))
+      // JUMP_IF_FALSE loop_end
+      lines.push(createInstruction(statementId, "JUMP_IF_FALSE", [loopEnd]))
+      // ITER_NEXT varName - get next key and store in variable
+      lines.push(createInstruction(statementId, "ITER_NEXT", [varName as string]))
+      // Compile body
+      lines.push(...compileBlock(forInStmt.body, statementId, diagnostics))
+      // JUMP loop_start
+      lines.push(createInstruction(statementId, "JUMP", [loopStart]))
+      // LABEL loop_end
+      lines.push(createInstruction(statementId, "LABEL", [loopEnd]))
+      break
+    }
+
+    case "ForStatement":
+    case "ForOfStatement": {
       lines.push(createInstruction(statementId, "UNSUPPORTED", [node.type]))
-      diagnostics.push({ statementId, message: "Loop statements not yet supported in MVP" })
+      diagnostics.push({ statementId, message: "This loop type is not yet supported" })
       break
     }
 
@@ -139,6 +235,22 @@ function compileStatement(node: BabelNode, statementId: string, diagnostics: Com
   return lines
 }
 
+function compileBlock(node: BabelNode, statementId: string, diagnostics: CompileDiagnostic[]): InstructionLine[] {
+  const lines: InstructionLine[] = []
+
+  if (node.type === "BlockStatement") {
+    const block = node as BabelNode & { body: BabelNode[] }
+    for (const stmt of block.body) {
+      lines.push(...compileStatement(stmt, statementId, diagnostics))
+    }
+  } else {
+    // Single statement (no braces)
+    lines.push(...compileStatement(node, statementId, diagnostics))
+  }
+
+  return lines
+}
+
 function compileExpression(node: BabelNode, statementId: string, diagnostics: CompileDiagnostic[]): InstructionLine[] {
   const lines: InstructionLine[] = []
 
@@ -163,6 +275,25 @@ function compileExpression(node: BabelNode, statementId: string, diagnostics: Co
 
     case "NullLiteral": {
       lines.push(createInstruction(statementId, "PUSH_NULL"))
+      break
+    }
+
+    case "ArrayExpression": {
+      const arr = node as BabelNode & { elements: (BabelNode | null)[] }
+      // Compile each element onto the stack
+      for (const elem of arr.elements) {
+        if (elem === null) {
+          // Sparse array element (e.g., [1, , 3])
+          lines.push(createInstruction(statementId, "PUSH_UNDEFINED"))
+        } else if (elem.type === "SpreadElement") {
+          lines.push(createInstruction(statementId, "UNSUPPORTED", ["SpreadElement"]))
+          diagnostics.push({ statementId, message: "Spread elements in arrays not supported" })
+        } else {
+          lines.push(...compileExpression(elem, statementId, diagnostics))
+        }
+      }
+      // Create the array from the elements on the stack
+      lines.push(createInstruction(statementId, "CREATE_ARRAY", [String(arr.elements.length)]))
       break
     }
 
@@ -289,6 +420,45 @@ function compileExpression(node: BabelNode, statementId: string, diagnostics: Co
       } else {
         lines.push(createInstruction(statementId, "UNSUPPORTED", ["ComputedPropertyAccess"]))
         diagnostics.push({ statementId, message: "Computed property access not supported" })
+      }
+      break
+    }
+
+    case "UpdateExpression": {
+      const update = node as BabelNode & {
+        argument: BabelNode & { name?: string }
+        operator: string
+        prefix: boolean
+      }
+      if (update.argument.type === "Identifier" && update.argument.name) {
+        const varName = update.argument.name
+        if (update.operator === "++") {
+          if (update.prefix) {
+            // ++i: increment first, then push value
+            lines.push(createInstruction(statementId, "INCREMENT", [varName]))
+            lines.push(createInstruction(statementId, "LOAD_VAR", [varName]))
+          } else {
+            // i++: push old value, then increment
+            lines.push(createInstruction(statementId, "LOAD_VAR", [varName]))
+            lines.push(createInstruction(statementId, "INCREMENT", [varName]))
+          }
+        } else if (update.operator === "--") {
+          if (update.prefix) {
+            // --i: decrement first, then push value
+            lines.push(createInstruction(statementId, "DECREMENT", [varName]))
+            lines.push(createInstruction(statementId, "LOAD_VAR", [varName]))
+          } else {
+            // i--: push old value, then decrement
+            lines.push(createInstruction(statementId, "LOAD_VAR", [varName]))
+            lines.push(createInstruction(statementId, "DECREMENT", [varName]))
+          }
+        } else {
+          lines.push(createInstruction(statementId, "UNSUPPORTED", [`UpdateOp(${update.operator})`]))
+          diagnostics.push({ statementId, message: `Unknown update operator: ${update.operator}` })
+        }
+      } else {
+        lines.push(createInstruction(statementId, "UNSUPPORTED", ["ComplexUpdateExpression"]))
+        diagnostics.push({ statementId, message: "Complex update expressions not supported" })
       }
       break
     }
