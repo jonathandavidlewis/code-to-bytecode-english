@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useCallback, useRef, useState, useEffect } from "react"
 import type { StatementBlock, ParseError } from "@/lib/bytecode/types"
-import { ZEBRA_COLORS, STATEMENT_HOVER_BG_COLOR, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
+import { ZEBRA_COLORS, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
 
 interface SourceEditorProps {
   source: string
@@ -161,7 +161,7 @@ export function SourceEditor({ source, onChange, statements, parseError, hovered
             const bandKey = group.colorBand === 0 ? "band0" : "band1"
             const groupBgClass = group.statementId
               ? isHovered
-                ? STATEMENT_HOVER_BG_COLOR[bandKey]
+                ? ZEBRA_COLORS[bandKey].hoverBg
                 : ZEBRA_COLORS[bandKey].bg
               : "bg-transparent"
             const borderStyle = isHovered

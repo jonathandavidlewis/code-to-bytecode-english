@@ -5,7 +5,7 @@ import type React from "react"
 import { forwardRef } from "react"
 import type { InstructionLine, StatementBlock } from "@/lib/bytecode/types"
 import type { LineHeightSync } from "@/hooks/use-line-height-sync"
-import { ZEBRA_COLORS, STATEMENT_HOVER_BG_COLOR, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
+import { ZEBRA_COLORS, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
 
 interface EnglishViewerProps {
   lines: InstructionLine[]
@@ -50,7 +50,7 @@ export const EnglishViewer = forwardRef<HTMLDivElement, EnglishViewerProps>(func
             const isHovered = group.statementId === hoveredStatementId
             const bandKey = group.colorBand === 0 ? "band0" : "band1"
             const bgClass = isHovered
-              ? STATEMENT_HOVER_BG_COLOR[bandKey]
+              ? ZEBRA_COLORS[bandKey].hoverBg
               : ZEBRA_COLORS[bandKey].bg
             const borderStyle = isHovered
               ? STATEMENT_HOVER_BORDER[bandKey].style

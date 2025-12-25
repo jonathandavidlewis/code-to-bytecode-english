@@ -199,7 +199,7 @@ export function GapConnector({
         {trapezoids.map((trap) => {
           const isHovered = trap.statementId === hoveredStatementId
           const bandKey = trap.colorBand === 0 ? "band0" : "band1"
-          const fill = ZEBRA_COLORS[bandKey].fill
+          const fill = isHovered ? ZEBRA_COLORS[bandKey].hoverFill : ZEBRA_COLORS[bandKey].fill
           const stroke = isHovered ? STATEMENT_HOVER_BORDER[bandKey].stroke : "none"
 
           // Create trapezoid points:

@@ -4,7 +4,7 @@ import { useState, useCallback } from "react"
 import { ChevronRight, ChevronDown } from "lucide-react"
 import type { Node as BabelNode } from "@babel/types"
 import type { StatementBlock } from "@/lib/bytecode/types"
-import { ZEBRA_COLORS, STATEMENT_HOVER_BG_COLOR, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
+import { ZEBRA_COLORS, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
 
 interface AstViewerProps {
   statements: StatementBlock[]
@@ -30,7 +30,7 @@ export function AstViewer({ statements, hoveredStatementId, onHoverStatement }: 
               const isHovered = statement.id === hoveredStatementId
               const bandKey = statement.colorBand === 0 ? "band0" : "band1"
               const bgClass = isHovered
-                ? STATEMENT_HOVER_BG_COLOR[bandKey]
+                ? ZEBRA_COLORS[bandKey].hoverBg
                 : ZEBRA_COLORS[bandKey].bg
               const borderStyle = isHovered
                 ? STATEMENT_HOVER_BORDER[bandKey].style
