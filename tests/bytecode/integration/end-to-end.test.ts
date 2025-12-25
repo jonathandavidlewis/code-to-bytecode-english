@@ -83,7 +83,8 @@ describe('End-to-end compilation', () => {
     })
 
     it('unsupported statements still produce output', () => {
-      const result = compileSource('if (true) {}')
+      // ForOfStatement is not yet supported
+      const result = compileSource('for (const x of arr) {}')
       expect(result.lines.length).toBeGreaterThan(0)
       expect(result.lines[0].op).toBe('UNSUPPORTED')
     })

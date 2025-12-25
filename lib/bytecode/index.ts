@@ -1,3 +1,3 @@
 export * from "./types"
 export { parseSource } from "./parser"
-export { compile, resetLabelCounter } from "./compiler"
+export { compile, resetLabelCounter, resetBreakTargetStack } from "./compiler"

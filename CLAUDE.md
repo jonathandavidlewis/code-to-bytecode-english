@@ -20,6 +20,25 @@ lib/           - Utility functions and bytecode logic
   bytecode/    - Parser, compiler, and types for bytecode generation
 styles/        - Global CSS styles
 public/        - Static assets
+tests/
+`-- bytecode
+    |-- compiler
+    |   |-- expressions
+    |   |   |-- array-expression.test.ts
+    |   |   |-- binary-expression.test.ts
+    |   |   |-- call-expression.test.ts
+    |   |   |-- literals.test.ts
+    |   |   `-- update-expression.test.ts
+    |   `-- statements
+    |       |-- for-in-statement.test.ts
+    |       |-- variable-declaration.test.ts
+    |       `-- while-statement.test.ts
+    |-- helpers
+    |   `-- test-utils.ts
+    |-- integration
+    |   `-- end-to-end.test.ts
+    `-- parser
+        `-- parser.test.ts
 ```
 
 ## Commands
@@ -29,6 +48,7 @@ pnpm dev       # Start development server
 pnpm build     # Production build
 pnpm start     # Start production server
 pnpm lint      # Run ESLint
+pnpm test      # Run tests with Vite
 ```
 
 ## Key Concepts
@@ -43,3 +63,10 @@ pnpm lint      # Run ESLint
 - The bytecode compiler in `lib/bytecode/compiler.ts` transforms AST nodes to instruction lines
 - Components use resizable panels for the multi-column layout
 - Color banding alternates between statements for visual clarity
+
+## Contributing
+
+1. Run tests after changes: `pnpm test`
+2. check linting: `pnpm lint`
+3. Check types: `pnpm tsc --noEmit`
+4. Check with playwright MCP

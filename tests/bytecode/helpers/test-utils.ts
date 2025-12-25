@@ -1,4 +1,4 @@
-import { parseSource, compile, resetLabelCounter } from '@/lib/bytecode'
+import { parseSource, compile, resetLabelCounter, resetBreakTargetStack } from '@/lib/bytecode'
 import type {
   ParseStatus,
   StatementBlock,
@@ -211,10 +211,33 @@ export const expectedNarrations = {
   DECREMENT: (varName: string) => `Decrement the value of '${varName}' by 1.`,
   // Array operations
   CREATE_ARRAY: (count: string) => `Create a new array with ${count} element(s).`,
+  // Stack operations
+  DUP: () => 'Duplicate the top value on the stack.',
+  // Additional control flow
+  JUMP_IF_TRUE: (label: string) => `Pop the top value; if true, jump to '${label}'.`,
+  // Import operations
+  IMPORT: (localName: string, source: string) => `Import '${localName}' from module '${source}'.`,
+  IMPORT_AS: (original: string, local: string, source: string) =>
+    `Import '${local}' (originally '${original}') from module '${source}'.`,
+  IMPORT_DEFAULT: (name: string, source: string) =>
+    `Import the default export as '${name}' from module '${source}'.`,
+  IMPORT_NAMESPACE: (name: string, source: string) =>
+    `Import all exports from '${source}' as namespace '${name}'.`,
+  // Export operations
+  EXPORT: (name: string) => `Export '${name}' from this module.`,
+  EXPORT_AS: (local: string, exported: string) =>
+    `Export '${local}' as '${exported}' from this module.`,
+  // Function operations
+  DECLARE_FUNC: (name: string, paramCount: string) =>
+    `Declare function '${name}' that takes ${paramCount} parameter(s).`,
+  PARAM: (name: string, index: string) =>
+    `Bind parameter '${name}' (argument ${index}) to a local variable.`,
+  RETURN: () => 'Return the value on top of the stack to the caller.',
+  RETURN_UNDEFINED: () => 'Return undefined to the caller (implicit return).',
 }
 
-// Re-export resetLabelCounter for test setup
-export { resetLabelCounter }
+// Re-export reset functions for test setup
+export { resetLabelCounter, resetBreakTargetStack }
 
 /**
  * Assert that an instruction has the expected English narration
