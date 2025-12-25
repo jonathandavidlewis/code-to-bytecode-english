@@ -204,13 +204,23 @@ export const expectedNarrations = {
   JUMP_IF_FALSE: (label: string) => `Pop the top value; if false, jump to '${label}'.`,
   // Iterator operations
   GET_KEYS: () => 'Get the enumerable keys of the object on the stack and push an iterator.',
-  ITER_NEXT: (varName: string) => `Get the next key from the iterator and store it in '${varName}'.`,
+  GET_ITERATOR: () => 'Get an iterator for the iterable on the stack.',
+  ITER_NEXT: (varName: string) => `Get the next value from the iterator and store it in '${varName}'.`,
   ITER_HAS_NEXT: () => 'Check if the iterator has more items; push true or false.',
   // Update operations
   INCREMENT: (varName: string) => `Increment the value of '${varName}' by 1.`,
   DECREMENT: (varName: string) => `Decrement the value of '${varName}' by 1.`,
   // Array operations
   CREATE_ARRAY: (count: string) => `Create a new array with ${count} element(s).`,
+  SPREAD: () => 'Spread the array on top of the stack into individual elements.',
+  // Object operations
+  CREATE_OBJECT: (count: string) => `Create a new object with ${count} properties.`,
+  SET_PROP: (name: string) => `Set the property '${name}' on the object.`,
+  GET_COMPUTED_PROP: () => 'Get property using the key on top of the stack.',
+  SET_COMPUTED_PROP: () => 'Set property using the key and value on top of the stack.',
+  // String operations
+  CONCAT_STRINGS: (count: string) => `Concatenate ${count} string(s) from the stack.`,
+  TO_STRING: () => 'Convert the top value to a string.',
   // Stack operations
   DUP: () => 'Duplicate the top value on the stack.',
   // Additional control flow

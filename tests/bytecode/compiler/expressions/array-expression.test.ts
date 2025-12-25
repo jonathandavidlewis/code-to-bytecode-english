@@ -141,9 +141,13 @@ describe('ArrayExpression compilation', () => {
       expectNoDiagnostics(result)
     })
 
-    it('produces diagnostic for spread elements', () => {
+    it('compiles spread elements without diagnostics', () => {
       const result = compileSource('[...arr];')
-      expectDiagnostic(result.diagnostics, 'Spread elements in arrays not supported')
+      expectNoDiagnostics(result)
+      // Should have SPREAD and CREATE_ARRAY with "spread" marker
+      const lines = result.lines
+      expect(lines.some((l) => l.op === 'SPREAD')).toBe(true)
+      expect(lines.some((l) => l.op === 'CREATE_ARRAY' && l.args[0] === 'spread')).toBe(true)
     })
   })
 })

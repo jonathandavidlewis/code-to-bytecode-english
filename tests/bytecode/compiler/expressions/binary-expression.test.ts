@@ -188,20 +188,26 @@ describe('BinaryExpression compilation', () => {
       expectDiagnostic(result.diagnostics, 'Unsupported binary operator')
     })
 
-    it('generates diagnostic for logical AND', () => {
+    it('logical AND is now supported', () => {
       const result = compileSource('a && b;')
-      // LogicalExpression is a separate node type, generates UNSUPPORTED
-      expectDiagnostic(result.diagnostics, 'Unsupported expression type')
+      // LogicalExpression is now supported with short-circuit evaluation
+      expectNoDiagnostics(result)
+      const ops = result.lines.map((l) => l.op)
+      expect(ops).toContain('DUP')
+      expect(ops).toContain('JUMP_IF_FALSE')
     })
 
-    it('generates diagnostic for logical OR', () => {
+    it('logical OR is now supported', () => {
       const result = compileSource('a || b;')
-      // LogicalExpression is a separate node type, generates UNSUPPORTED
-      expectDiagnostic(result.diagnostics, 'Unsupported expression type')
+      // LogicalExpression is now supported with short-circuit evaluation
+      expectNoDiagnostics(result)
+      const ops = result.lines.map((l) => l.op)
+      expect(ops).toContain('DUP')
+      expect(ops).toContain('JUMP_IF_TRUE')
     })
 
     it('marks unsupported operators with UNSUPPORTED op', () => {
-      const lines = getInstructions('a && b;')
+      const lines = getInstructions('a ** b;')  // Exponentiation is not supported
       expect(lines.map((l) => l.op)).toContain('UNSUPPORTED')
     })
   })

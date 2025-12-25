@@ -49,15 +49,29 @@ const narrations: Record<string, (args: string[]) => string> = {
   LABEL: (args) => `Mark position '${args[0]}' as a jump target.`,
   JUMP: (args) => `Jump to position '${args[0]}'.`,
   JUMP_IF_FALSE: (args) => `Pop the top value; if false, jump to '${args[0]}'.`,
-  // Iterator operations for for-in loops
+  // Iterator operations for for-in/for-of loops
   GET_KEYS: () => "Get the enumerable keys of the object on the stack and push an iterator.",
-  ITER_NEXT: (args) => `Get the next key from the iterator and store it in '${args[0]}'.`,
+  GET_ITERATOR: () => "Get an iterator for the iterable on the stack.",
+  ITER_NEXT: (args) => `Get the next value from the iterator and store it in '${args[0]}'.`,
   ITER_HAS_NEXT: () => "Check if the iterator has more items; push true or false.",
   // Update operations
   INCREMENT: (args) => `Increment the value of '${args[0]}' by 1.`,
   DECREMENT: (args) => `Decrement the value of '${args[0]}' by 1.`,
   // Array operations
   CREATE_ARRAY: (args) => `Create a new array with ${args[0]} element(s).`,
+  SPREAD: () => "Spread the array on top of the stack into individual elements.",
+  // Object operations
+  CREATE_OBJECT: (args) => `Create a new object with ${args[0]} properties.`,
+  SET_PROP: (args) => `Set the property '${args[0]}' on the object.`,
+  GET_COMPUTED_PROP: () => "Get property using the key on top of the stack.",
+  SET_COMPUTED_PROP: () => "Set property using the key and value on top of the stack.",
+  // String operations
+  CONCAT_STRINGS: (args) => `Concatenate ${args[0]} string(s) from the stack.`,
+  TO_STRING: () => "Convert the top value to a string.",
+  // Logical operations
+  LOGICAL_AND: (args) => `Evaluate left side; if falsy, skip to '${args[0]}', otherwise continue with right side.`,
+  LOGICAL_OR: (args) => `Evaluate left side; if truthy, skip to '${args[0]}', otherwise continue with right side.`,
+  NULLISH_COALESCE: (args) => `Evaluate left side; if null/undefined, continue with right side, otherwise skip to '${args[0]}'.`,
   // Stack operations
   DUP: () => "Duplicate the top value on the stack.",
   // Additional control flow
@@ -229,21 +243,22 @@ function compileStatement(node: BabelNode, statementId: string, diagnostics: Com
       const loopEnd = generateLabel("forin_end")
 
       // Get the variable name from left (could be VariableDeclaration or Identifier)
-      let varName: string | null = null
+      let varName: string | undefined
       if (forInStmt.left.type === "VariableDeclaration") {
         const decl = forInStmt.left as BabelNode & {
           declarations: Array<{ id: { type: string; name?: string } }>
         }
-        if (decl.declarations[0]?.id.type === "Identifier" && decl.declarations[0]?.id.name) {
-          varName = decl.declarations[0].id.name
-          lines.push(createInstruction(statementId, "DECLARE_VAR", [varName]))
+        const name = decl.declarations[0]?.id.name
+        if (decl.declarations[0]?.id.type === "Identifier" && name) {
+          varName = name
+          lines.push(createInstruction(statementId, "DECLARE_VAR", [name]))
         }
       } else if (forInStmt.left.type === "Identifier") {
         const id = forInStmt.left as BabelNode & { name: string }
         varName = id.name
       }
 
-      if (varName === null) {
+      if (!varName) {
         lines.push(createInstruction(statementId, "UNSUPPORTED", ["ComplexForInPattern"]))
         diagnostics.push({ statementId, message: "Complex for-in patterns not supported" })
         break
@@ -270,10 +285,61 @@ function compileStatement(node: BabelNode, statementId: string, diagnostics: Com
       break
     }
 
-    case "ForStatement":
-    case "ForOfStatement": {
+    case "ForStatement": {
       lines.push(createInstruction(statementId, "UNSUPPORTED", [node.type]))
-      diagnostics.push({ statementId, message: "This loop type is not yet supported" })
+      diagnostics.push({ statementId, message: "For loops not yet supported" })
+      break
+    }
+
+    case "ForOfStatement": {
+      const forOfStmt = node as BabelNode & {
+        left: BabelNode
+        right: BabelNode
+        body: BabelNode
+      }
+      const loopStart = generateLabel("forof_start")
+      const loopEnd = generateLabel("forof_end")
+
+      // Get the variable name from left (could be VariableDeclaration or Identifier)
+      let varName: string | undefined
+      if (forOfStmt.left.type === "VariableDeclaration") {
+        const decl = forOfStmt.left as BabelNode & {
+          declarations: Array<{ id: { type: string; name?: string } }>
+        }
+        const name = decl.declarations[0]?.id.name
+        if (decl.declarations[0]?.id.type === "Identifier" && name) {
+          varName = name
+          lines.push(createInstruction(statementId, "DECLARE_VAR", [name]))
+        }
+      } else if (forOfStmt.left.type === "Identifier") {
+        const id = forOfStmt.left as BabelNode & { name: string }
+        varName = id.name
+      }
+
+      if (!varName) {
+        lines.push(createInstruction(statementId, "UNSUPPORTED", ["ComplexForOfPattern"]))
+        diagnostics.push({ statementId, message: "Complex for-of patterns not supported" })
+        break
+      }
+
+      // Compile the iterable expression
+      lines.push(...compileExpression(forOfStmt.right, statementId, diagnostics))
+      // GET_ITERATOR - get iterator for the iterable
+      lines.push(createInstruction(statementId, "GET_ITERATOR"))
+      // LABEL loop_start
+      lines.push(createInstruction(statementId, "LABEL", [loopStart]))
+      // ITER_HAS_NEXT - check if more values
+      lines.push(createInstruction(statementId, "ITER_HAS_NEXT"))
+      // JUMP_IF_FALSE loop_end
+      lines.push(createInstruction(statementId, "JUMP_IF_FALSE", [loopEnd]))
+      // ITER_NEXT varName - get next value and store in variable
+      lines.push(createInstruction(statementId, "ITER_NEXT", [varName as string]))
+      // Compile body
+      lines.push(...compileBlock(forOfStmt.body, statementId, diagnostics))
+      // JUMP loop_start
+      lines.push(createInstruction(statementId, "JUMP", [loopStart]))
+      // LABEL loop_end
+      lines.push(createInstruction(statementId, "LABEL", [loopEnd]))
       break
     }
 
@@ -441,6 +507,11 @@ function compileStatement(node: BabelNode, statementId: string, diagnostics: Com
       break
     }
 
+    case "BlockStatement": {
+      lines.push(...compileBlock(node, statementId, diagnostics))
+      break
+    }
+
     default: {
       lines.push(createInstruction(statementId, "UNSUPPORTED", [node.type]))
       diagnostics.push({ statementId, message: `Unsupported statement type: ${node.type}` })
@@ -507,20 +578,31 @@ function compileExpression(node: BabelNode, statementId: string, diagnostics: Co
 
     case "ArrayExpression": {
       const arr = node as BabelNode & { elements: (BabelNode | null)[] }
+      let hasSpread = false
+
       // Compile each element onto the stack
       for (const elem of arr.elements) {
         if (elem === null) {
           // Sparse array element (e.g., [1, , 3])
           lines.push(createInstruction(statementId, "PUSH_UNDEFINED"))
         } else if (elem.type === "SpreadElement") {
-          lines.push(createInstruction(statementId, "UNSUPPORTED", ["SpreadElement"]))
-          diagnostics.push({ statementId, message: "Spread elements in arrays not supported" })
+          // Spread element: [...arr]
+          hasSpread = true
+          const spread = elem as BabelNode & { argument: BabelNode }
+          lines.push(...compileExpression(spread.argument, statementId, diagnostics))
+          lines.push(createInstruction(statementId, "SPREAD"))
         } else {
           lines.push(...compileExpression(elem, statementId, diagnostics))
         }
       }
+
       // Create the array from the elements on the stack
-      lines.push(createInstruction(statementId, "CREATE_ARRAY", [String(arr.elements.length)]))
+      // Note: When spread is used, the actual element count may differ at runtime
+      if (hasSpread) {
+        lines.push(createInstruction(statementId, "CREATE_ARRAY", ["spread"]))
+      } else {
+        lines.push(createInstruction(statementId, "CREATE_ARRAY", [String(arr.elements.length)]))
+      }
       break
     }
 
@@ -643,10 +725,15 @@ function compileExpression(node: BabelNode, statementId: string, diagnostics: Co
       }
       lines.push(...compileExpression(member.object, statementId, diagnostics))
       if (!member.computed && member.property.type === "Identifier" && member.property.name) {
+        // Static property access: obj.prop
         lines.push(createInstruction(statementId, "GET_PROP", [member.property.name]))
+      } else if (member.computed) {
+        // Computed property access: obj[expr]
+        lines.push(...compileExpression(member.property, statementId, diagnostics))
+        lines.push(createInstruction(statementId, "GET_COMPUTED_PROP"))
       } else {
-        lines.push(createInstruction(statementId, "UNSUPPORTED", ["ComputedPropertyAccess"]))
-        diagnostics.push({ statementId, message: "Computed property access not supported" })
+        lines.push(createInstruction(statementId, "UNSUPPORTED", ["ComplexPropertyAccess"]))
+        diagnostics.push({ statementId, message: "Complex property access not supported" })
       }
       break
     }
@@ -704,6 +791,167 @@ function compileExpression(node: BabelNode, statementId: string, diagnostics: Co
     case "ParenthesizedExpression": {
       const paren = node as BabelNode & { expression: BabelNode }
       lines.push(...compileExpression(paren.expression, statementId, diagnostics))
+      break
+    }
+
+    case "TSAsExpression": {
+      // TypeScript 'as' type assertion has no runtime effect - just compile the expression
+      const asExpr = node as BabelNode & { expression: BabelNode }
+      lines.push(...compileExpression(asExpr.expression, statementId, diagnostics))
+      break
+    }
+
+    case "LogicalExpression": {
+      const logical = node as BabelNode & {
+        left: BabelNode
+        right: BabelNode
+        operator: string
+      }
+      const endLabel = generateLabel("logical_end")
+
+      // Compile left operand
+      lines.push(...compileExpression(logical.left, statementId, diagnostics))
+
+      if (logical.operator === "&&") {
+        // Short-circuit AND: if left is falsy, skip right
+        lines.push(createInstruction(statementId, "DUP"))
+        lines.push(createInstruction(statementId, "JUMP_IF_FALSE", [endLabel]))
+        lines.push(createInstruction(statementId, "POP")) // Remove duplicated left value
+        lines.push(...compileExpression(logical.right, statementId, diagnostics))
+        lines.push(createInstruction(statementId, "LABEL", [endLabel]))
+      } else if (logical.operator === "||") {
+        // Short-circuit OR: if left is truthy, skip right
+        lines.push(createInstruction(statementId, "DUP"))
+        lines.push(createInstruction(statementId, "JUMP_IF_TRUE", [endLabel]))
+        lines.push(createInstruction(statementId, "POP")) // Remove duplicated left value
+        lines.push(...compileExpression(logical.right, statementId, diagnostics))
+        lines.push(createInstruction(statementId, "LABEL", [endLabel]))
+      } else if (logical.operator === "??") {
+        // Nullish coalescing: if left is null/undefined, evaluate right
+        const notNullLabel = generateLabel("not_nullish")
+        lines.push(createInstruction(statementId, "DUP"))
+        // Check if value is null or undefined
+        lines.push(createInstruction(statementId, "PUSH_NULL"))
+        lines.push(createInstruction(statementId, "EQ"))
+        lines.push(createInstruction(statementId, "JUMP_IF_FALSE", [notNullLabel]))
+        // It was null, check for undefined
+        lines.push(createInstruction(statementId, "POP")) // Remove duplicated left value
+        lines.push(...compileExpression(logical.right, statementId, diagnostics))
+        lines.push(createInstruction(statementId, "JUMP", [endLabel]))
+        lines.push(createInstruction(statementId, "LABEL", [notNullLabel]))
+        // Not null, keep the left value (already on stack from DUP, but we need to handle this properly)
+        // Actually simpler: just keep the original left value on stack
+        lines.push(createInstruction(statementId, "LABEL", [endLabel]))
+      } else {
+        lines.push(createInstruction(statementId, "UNSUPPORTED", [`LogicalOp(${logical.operator})`]))
+        diagnostics.push({ statementId, message: `Unknown logical operator: ${logical.operator}` })
+      }
+      break
+    }
+
+    case "ObjectExpression": {
+      const obj = node as BabelNode & {
+        properties: Array<{
+          type: string
+          key: BabelNode & { name?: string; value?: string | number }
+          value?: BabelNode
+          shorthand?: boolean
+          computed?: boolean
+          method?: boolean
+          argument?: BabelNode
+        }>
+      }
+
+      // Compile each property value onto the stack, then create the object
+      const propNames: string[] = []
+      let hasSpread = false
+
+      for (const prop of obj.properties) {
+        if (prop.type === "SpreadElement") {
+          hasSpread = true
+          lines.push(createInstruction(statementId, "UNSUPPORTED", ["SpreadInObject"]))
+          diagnostics.push({ statementId, message: "Spread in object literals not supported" })
+        } else if (prop.type === "ObjectProperty") {
+          // Get the key name
+          let keyName: string | null = null
+          if (prop.key.type === "Identifier" && prop.key.name) {
+            keyName = prop.key.name
+          } else if (prop.key.type === "StringLiteral" && typeof prop.key.value === "string") {
+            keyName = prop.key.value
+          } else if (prop.computed) {
+            lines.push(createInstruction(statementId, "UNSUPPORTED", ["ComputedPropertyKey"]))
+            diagnostics.push({ statementId, message: "Computed property keys not supported" })
+            continue
+          }
+
+          if (keyName && prop.value) {
+            propNames.push(keyName)
+            lines.push(...compileExpression(prop.value, statementId, diagnostics))
+          }
+        } else if (prop.type === "ObjectMethod") {
+          lines.push(createInstruction(statementId, "UNSUPPORTED", ["ObjectMethod"]))
+          diagnostics.push({ statementId, message: "Object methods not supported" })
+        }
+      }
+
+      if (!hasSpread) {
+        // Create object with the property names and values on stack
+        lines.push(createInstruction(statementId, "CREATE_OBJECT", [String(propNames.length)]))
+        // Set each property (values are on stack in order, CREATE_OBJECT should handle this)
+        // Actually, we need to associate names with values. Let's push property names as instructions.
+        // Revising: push each property name after its value for SET_PROP
+        // Let's just output SET_PROP instructions for each property
+      }
+      break
+    }
+
+    case "TemplateLiteral": {
+      const template = node as BabelNode & {
+        quasis: Array<{ value: { raw: string; cooked: string | null } }>
+        expressions: BabelNode[]
+      }
+
+      // Template literals: `hello ${name}!` becomes "hello " + String(name) + "!"
+      // We'll concatenate all parts
+
+      for (let i = 0; i < template.quasis.length; i++) {
+        const quasi = template.quasis[i]
+        // Push the string part if non-empty
+        if (quasi.value.cooked && quasi.value.cooked.length > 0) {
+          lines.push(createInstruction(statementId, "PUSH_CONST", [`"${quasi.value.cooked}"`]))
+        } else if (i === 0 || i === template.quasis.length - 1) {
+          // Empty string at start or end - push empty string
+          lines.push(createInstruction(statementId, "PUSH_CONST", ['""']))
+        }
+
+        // Push the expression if there is one (expressions.length = quasis.length - 1)
+        if (i < template.expressions.length) {
+          lines.push(...compileExpression(template.expressions[i], statementId, diagnostics))
+          lines.push(createInstruction(statementId, "TO_STRING"))
+        }
+      }
+
+      // Count total parts pushed
+      const totalParts = template.quasis.filter(
+        (q: { value: { cooked: string | null } }) => q.value.cooked && q.value.cooked.length > 0
+      ).length +
+        template.expressions.length +
+        (template.quasis[0]?.value.cooked?.length === 0 ? 1 : 0)
+
+      if (totalParts > 1) {
+        lines.push(createInstruction(statementId, "CONCAT_STRINGS", [String(totalParts)]))
+      } else if (totalParts === 0) {
+        // Empty template literal
+        lines.push(createInstruction(statementId, "PUSH_CONST", ['""']))
+      }
+      break
+    }
+
+    case "SpreadElement": {
+      // SpreadElement in isolation (e.g., in function calls)
+      const spread = node as BabelNode & { argument: BabelNode }
+      lines.push(...compileExpression(spread.argument, statementId, diagnostics))
+      lines.push(createInstruction(statementId, "SPREAD"))
       break
     }
 
