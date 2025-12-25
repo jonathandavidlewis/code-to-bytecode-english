@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useCallback, useRef } from "react"
+import { useCallback, useRef, useState, useEffect } from "react"
 import type { StatementBlock, ParseError } from "@/lib/bytecode/types"
 import { ZEBRA_COLORS, STATEMENT_HOVER_BG_COLOR, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
 
@@ -18,6 +18,8 @@ interface SourceEditorProps {
 export function SourceEditor({ source, onChange, statements, parseError, hoveredStatementId, onHoverStatement }: SourceEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const [lineHeights, setLineHeights] = useState<number[]>([])
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -53,6 +55,65 @@ export function SourceEditor({ source, onChange, statements, parseError, hovered
     onHoverStatement(null)
   }, [onHoverStatement])
 
+  // Measure line heights to handle text wrapping
+  const measureLineHeights = useCallback(() => {
+    const measureEl = measureRef.current
+    const textareaEl = textareaRef.current
+    if (!measureEl || !textareaEl) return
+
+    // Get the computed style of the textarea to match its rendering exactly
+    const computedStyle = window.getComputedStyle(textareaEl)
+    const width = textareaEl.clientWidth - 48 - 12 // Subtract padding (pl-12 = 48px, pr-3 = 12px)
+
+    if (width <= 0) return // Container not yet sized
+
+    // Copy all relevant text rendering properties
+    measureEl.style.width = `${width}px`
+    measureEl.style.font = computedStyle.font
+    measureEl.style.fontSize = computedStyle.fontSize
+    measureEl.style.fontFamily = computedStyle.fontFamily
+    measureEl.style.fontWeight = computedStyle.fontWeight
+    measureEl.style.letterSpacing = computedStyle.letterSpacing
+    measureEl.style.wordSpacing = computedStyle.wordSpacing
+    measureEl.style.lineHeight = computedStyle.lineHeight
+    measureEl.style.whiteSpace = "pre-wrap"
+    measureEl.style.wordBreak = "break-word"
+    measureEl.style.overflowWrap = "break-word"
+    measureEl.style.boxSizing = "border-box"
+    measureEl.style.padding = "0"
+    measureEl.style.margin = "0"
+    measureEl.style.border = "none"
+
+    const sourceLines = source.split("\n")
+    const heights: number[] = []
+
+    for (const line of sourceLines) {
+      // Use a non-breaking space for empty lines to get proper height
+      measureEl.textContent = line || "\u00A0"
+      heights.push(measureEl.offsetHeight)
+    }
+
+    setLineHeights(heights)
+  }, [source])
+
+  // Re-measure when source changes
+  useEffect(() => {
+    measureLineHeights()
+  }, [measureLineHeights])
+
+  // Re-measure when container resizes
+  useEffect(() => {
+    const textareaEl = textareaRef.current
+    if (!textareaEl) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      measureLineHeights()
+    })
+
+    resizeObserver.observe(textareaEl)
+    return () => resizeObserver.disconnect()
+  }, [measureLineHeights])
+
   // Generate line backgrounds with zebra striping
   const lines = source.split("\n")
 
@@ -60,7 +121,7 @@ export function SourceEditor({ source, onChange, statements, parseError, hovered
   interface LineGroup {
     statementId: string | null
     colorBand: 0 | 1 | null
-    lines: { lineNum: number }[]
+    lines: { lineNum: number; lineIndex: number }[]
   }
 
   const lineGroups: LineGroup[] = []
@@ -76,7 +137,7 @@ export function SourceEditor({ source, onChange, statements, parseError, hovered
       currentGroup = { statementId, colorBand, lines: [] }
       lineGroups.push(currentGroup)
     }
-    currentGroup.lines.push({ lineNum })
+    currentGroup.lines.push({ lineNum, lineIndex })
   })
 
   // Check if there's an error on a specific line
@@ -114,16 +175,20 @@ export function SourceEditor({ source, onChange, statements, parseError, hovered
                 data-color-band={group.colorBand ?? undefined}
                 className={`${groupBgClass} ${STATEMENT_BORDER_BASE} ${borderColorClass}`}
               >
-                {group.lines.map((line) => (
-                  <div
-                    key={line.lineNum}
-                    className={`flex h-6 ${errorLine === line.lineNum ? "!bg-red-100" : ""}`}
-                  >
-                    <span className="w-10 shrink-0 select-none pr-2 text-right text-muted-foreground">
-                      {line.lineNum}
-                    </span>
-                  </div>
-                ))}
+                {group.lines.map((line) => {
+                  const height = lineHeights[line.lineIndex] || 24
+                  return (
+                    <div
+                      key={line.lineNum}
+                      className={`flex items-start ${errorLine === line.lineNum ? "!bg-red-100" : ""}`}
+                      style={{ minHeight: "24px", height: `${height}px` }}
+                    >
+                      <span className="w-10 shrink-0 select-none pr-2 text-right text-muted-foreground leading-6">
+                        {line.lineNum}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )
           })}
@@ -138,8 +203,14 @@ export function SourceEditor({ source, onChange, statements, parseError, hovered
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           spellCheck={false}
-          className="absolute inset-0 h-full w-full resize-none bg-transparent py-0 pl-12 pr-3 font-mono text-sm leading-6 text-foreground outline-none"
-          style={{ caretColor: "currentColor" }}
+          className="absolute inset-0 h-full w-full resize-none bg-transparent font-mono text-sm leading-6 text-foreground outline-none"
+          style={{
+            caretColor: "currentColor",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
+            padding: "0 12px 0 48px",
+          }}
         />
 
         {/* Error indicator */}
@@ -157,6 +228,13 @@ export function SourceEditor({ source, onChange, statements, parseError, hovered
             </div>
           </div>
         )}
+
+        {/* Hidden element for measuring line heights */}
+        <div
+          ref={measureRef}
+          className="invisible absolute left-0 top-0 font-mono text-sm"
+          aria-hidden="true"
+        />
       </div>
     </div>
   )

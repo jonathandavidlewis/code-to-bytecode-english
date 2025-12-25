@@ -10,18 +10,18 @@ export const STATEMENT_HOVER_BG_COLOR = {
   band1: "bg-amber-100",
 } as const;
 
-// Base border class (always applied to prevent layout shift)
-export const STATEMENT_BORDER_BASE = "border-t border-b";
+// Base border class - using ring-inset which doesn't affect layout (unlike border)
+export const STATEMENT_BORDER_BASE = "ring-inset";
 
 export const STATEMENT_HOVER_BORDER = {
   band0: {
-    className: "border-sky-400",
-    inactiveClassName: "border-transparent",
+    className: "ring-1 ring-sky-400",
+    inactiveClassName: "ring-0",
     stroke: "#38bdf8", // sky-400 hex for SVG
   },
   band1: {
-    className: "border-amber-400",
-    inactiveClassName: "border-transparent",
+    className: "ring-1 ring-amber-400",
+    inactiveClassName: "ring-0",
     stroke: "#fbbf24", // amber-400 hex for SVG
   },
 } as const;
