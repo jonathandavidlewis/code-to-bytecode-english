@@ -7,6 +7,8 @@ export interface LineHeightSync {
   getLineHeight: (lineIndex: number) => number | undefined
   /** Array of synchronized heights indexed by line number */
   lineHeights: (number | undefined)[]
+  /** Counter that increments each time heights are updated - use as dependency for re-measuring */
+  updateCount: number
 }
 
 /**
@@ -19,6 +21,9 @@ export function useLineHeightSync(lineCount: number): LineHeightSync {
 
   // Computed max heights for each line
   const [lineHeights, setLineHeights] = useState<(number | undefined)[]>([])
+
+  // Counter that increments when heights change - for external components to react
+  const [updateCount, setUpdateCount] = useState(0)
 
   // Track if we're currently measuring to avoid infinite loops
   const isMeasuringRef = useRef(false)
@@ -71,6 +76,8 @@ export function useLineHeightSync(lineCount: number): LineHeightSync {
           isMeasuringRef.current = false
           return prev
         }
+        // Increment update count so external components know to re-measure
+        setUpdateCount((c) => c + 1)
         // Use requestAnimationFrame to batch the update
         requestAnimationFrame(() => {
           isMeasuringRef.current = false
@@ -132,5 +139,6 @@ export function useLineHeightSync(lineCount: number): LineHeightSync {
     setLineRef,
     getLineHeight,
     lineHeights,
+    updateCount,
   }
 }

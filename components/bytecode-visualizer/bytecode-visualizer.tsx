@@ -127,6 +127,7 @@ export function BytecodeVisualizer() {
           rightColumnRef={englishColumnRef}
           statements={statements}
           scrollContainerRef={scrollContainerRef}
+          lineHeightUpdateCount={lineHeightSync.updateCount}
         />
 
         {/* Column 4: English Viewer */}

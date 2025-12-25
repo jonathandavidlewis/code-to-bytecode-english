@@ -9,6 +9,8 @@ interface GapConnectorProps {
   rightColumnRef: RefObject<HTMLElement | null>
   statements: StatementBlock[]
   scrollContainerRef: RefObject<HTMLElement | null>
+  /** Optional counter to trigger re-measurement when line heights change */
+  lineHeightUpdateCount?: number
 }
 
 interface TrapezoidData {
@@ -29,6 +31,7 @@ export function GapConnector({
   rightColumnRef,
   statements,
   scrollContainerRef,
+  lineHeightUpdateCount,
 }: GapConnectorProps) {
   const [trapezoids, setTrapezoids] = useState<TrapezoidData[]>([])
   const [height, setHeight] = useState(0)
@@ -113,6 +116,15 @@ export function GapConnector({
     observer.observe(rightColumn)
     observer.observe(scrollContainer)
 
+    // Also observe individual statement elements to catch expand/collapse changes
+    const statementElements = [
+      ...leftColumn.querySelectorAll<HTMLElement>("[data-statement-id]"),
+      ...rightColumn.querySelectorAll<HTMLElement>("[data-statement-id]"),
+    ]
+    for (const el of statementElements) {
+      observer.observe(el)
+    }
+
     // Also observe scroll events
     const handleScroll = () => {
       if (rafId) return
@@ -128,7 +140,7 @@ export function GapConnector({
       scrollContainer.removeEventListener("scroll", handleScroll)
       if (rafId) cancelAnimationFrame(rafId)
     }
-  }, [leftColumnRef, rightColumnRef, scrollContainerRef, statements, measureCount])
+  }, [leftColumnRef, rightColumnRef, scrollContainerRef, statements, measureCount, lineHeightUpdateCount])
 
   return (
     <div ref={containerRef} className="relative h-full" style={{ width: GAP_BETWEEN_COLUMNS }}>
