@@ -104,43 +104,87 @@ export function GapConnector({
     // Initial measurement
     measureTrapezoids()
 
-    // Use ResizeObserver with debounce
-    let rafId: number | null = null
-    const observer = new ResizeObserver(() => {
-      if (rafId) return
-      rafId = requestAnimationFrame(() => {
-        measureTrapezoids()
-        rafId = null
-      })
-    })
+    // Track animation frame IDs separately for scroll vs resize
+    let scrollRafId: number | null = null
+    let resizeRafId: number | null = null
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
+    // Scroll handler - immediate response using only rAF (no debounce)
+    // This ensures smooth 60fps updates during scroll
+    const handleScroll = () => {
+      if (scrollRafId) return // Already have a pending frame
+      scrollRafId = requestAnimationFrame(() => {
+        measureTrapezoids()
+        scrollRafId = null
+      })
+    }
+
+    // Resize handler - debounced since resize events are less frequent
+    const handleResize = () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
+      if (resizeRafId) {
+        cancelAnimationFrame(resizeRafId)
+        resizeRafId = null
+      }
+
+      debounceTimer = setTimeout(() => {
+        resizeRafId = requestAnimationFrame(() => {
+          measureTrapezoids()
+          resizeRafId = null
+        })
+      }, 50)
+    }
+
+    const observer = new ResizeObserver(handleResize)
+
+    // Only observe the three container elements (not individual statements)
     observer.observe(leftColumn)
     observer.observe(rightColumn)
     observer.observe(scrollContainer)
 
-    // Also observe individual statement elements to catch expand/collapse changes
-    const statementElements = [
-      ...leftColumn.querySelectorAll<HTMLElement>("[data-statement-id]"),
-      ...rightColumn.querySelectorAll<HTMLElement>("[data-statement-id]"),
-    ]
-    for (const el of statementElements) {
-      observer.observe(el)
+    // Find scrollable elements inside each column (they have overflow-auto)
+    // The column refs point to wrapper divs; the actual scrollable content is inside
+    const findScrollableChild = (el: HTMLElement): HTMLElement | null => {
+      // Check if this element scrolls
+      if (el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY !== "hidden") {
+        return el
+      }
+      // Check children
+      for (const child of el.children) {
+        if (child instanceof HTMLElement) {
+          const scrollable = findScrollableChild(child)
+          if (scrollable) return scrollable
+        }
+      }
+      return null
     }
 
-    // Also observe scroll events
-    const handleScroll = () => {
-      if (rafId) return
-      rafId = requestAnimationFrame(() => {
-        measureTrapezoids()
-        rafId = null
-      })
+    // Collect all scrollable elements to listen to
+    const scrollableElements: HTMLElement[] = []
+    const leftScrollable = findScrollableChild(leftColumn)
+    const rightScrollable = findScrollableChild(rightColumn)
+    if (leftScrollable) scrollableElements.push(leftScrollable)
+    if (rightScrollable) scrollableElements.push(rightScrollable)
+    // Also listen to the main scroll container if it scrolls
+    if (scrollContainer.scrollHeight > scrollContainer.clientHeight) {
+      scrollableElements.push(scrollContainer)
     }
-    scrollContainer.addEventListener("scroll", handleScroll)
+
+    // Add scroll listeners to all scrollable elements
+    for (const el of scrollableElements) {
+      el.addEventListener("scroll", handleScroll, { passive: true })
+    }
 
     return () => {
       observer.disconnect()
-      scrollContainer.removeEventListener("scroll", handleScroll)
-      if (rafId) cancelAnimationFrame(rafId)
+      for (const el of scrollableElements) {
+        el.removeEventListener("scroll", handleScroll)
+      }
+      if (scrollRafId) cancelAnimationFrame(scrollRafId)
+      if (resizeRafId) cancelAnimationFrame(resizeRafId)
+      if (debounceTimer) clearTimeout(debounceTimer)
     }
   }, [leftColumnRef, rightColumnRef, scrollContainerRef, statements, measureCount, lineHeightUpdateCount])
 

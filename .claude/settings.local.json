@@ -85,7 +85,10 @@
       "Bash(ping:*)",
       "Bash(cmd //c \"taskkill /F /PID 408240\")",
       "Bash(pnpm prisma db seed:*)",
-      "Bash(pnpm prisma migrate:*)"
+      "Bash(pnpm prisma migrate:*)",
+      "Bash(pnpm install)",
+      "Bash(pnpm test:perf:*)",
+      "Bash(pnpm test:bench:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useRef } from "react"
+import { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import { parseSource, compile } from "@/lib/bytecode"
 import type { ParseStatus, StatementBlock, ParseError } from "@/lib/bytecode/types"
 import { SourceEditor } from "./source-editor"
@@ -29,10 +29,12 @@ export function BytecodeVisualizer() {
   const englishColumnRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // Parse on source change
-  const handleSourceChange = useCallback((newSource: string) => {
-    setSource(newSource)
-    const result = parseSource(newSource)
+  // Debounce timer ref for parsing
+  const parseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Parse with debouncing
+  const doParse = useCallback((sourceToparse: string) => {
+    const result = parseSource(sourceToparse)
 
     setParseStatus((prev) => {
       if (result.kind === "valid") {
@@ -52,6 +54,31 @@ export function BytecodeVisualizer() {
         lastValid: prev.lastValid,
       }
     })
+  }, [])
+
+  // Handle source change with debounced parsing
+  const handleSourceChange = useCallback((newSource: string) => {
+    // Update source immediately for responsive UI
+    setSource(newSource)
+
+    // Cancel any pending parse
+    if (parseDebounceRef.current) {
+      clearTimeout(parseDebounceRef.current)
+    }
+
+    // Debounce the parsing (150ms delay)
+    parseDebounceRef.current = setTimeout(() => {
+      doParse(newSource)
+    }, 150)
+  }, [doParse])
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (parseDebounceRef.current) {
+        clearTimeout(parseDebounceRef.current)
+      }
+    }
   }, [])
 
   // Get current statements (from valid parse or last valid)

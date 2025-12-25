@@ -34,7 +34,7 @@ export function useLineHeightSync(lineCount: number): LineHeightSync {
   // ResizeObserver ref
   const observerRef = useRef<ResizeObserver | null>(null)
 
-  // Recalculate all heights
+  // Recalculate all heights using batched DOM reads/writes to avoid layout thrashing
   const recalculateHeights = useCallback(() => {
     if (isMeasuringRef.current) return
 
@@ -46,27 +46,57 @@ export function useLineHeightSync(lineCount: number): LineHeightSync {
     debounceTimerRef.current = setTimeout(() => {
       isMeasuringRef.current = true
 
-      const maxHeights: (number | undefined)[] = []
+      // Collect all elements with their previous minHeights
+      const elementsToMeasure: Array<{
+        element: HTMLElement
+        lineIndex: number
+        previousMinHeight: string
+      }> = []
 
       for (let i = 0; i < lineCount; i++) {
-        let maxHeight = 0
-
         for (const columnRefs of lineRefs.current.values()) {
           const element = columnRefs.get(i)
           if (element) {
-            // Get the natural height by temporarily removing any forced height
-            const previousMinHeight = element.style.minHeight
-            element.style.minHeight = ""
-
-            // Force layout recalculation
-            const naturalHeight = element.scrollHeight
-            element.style.minHeight = previousMinHeight
-
-            maxHeight = Math.max(maxHeight, naturalHeight)
+            elementsToMeasure.push({
+              element,
+              lineIndex: i,
+              previousMinHeight: element.style.minHeight,
+            })
           }
         }
+      }
 
-        maxHeights[i] = maxHeight > 0 ? maxHeight : undefined
+      // WRITE PHASE: Remove all minHeights at once
+      for (const { element } of elementsToMeasure) {
+        element.style.minHeight = ""
+      }
+
+      // READ PHASE: Read all scrollHeights (single forced layout)
+      const measurements: Array<{ lineIndex: number; height: number }> = []
+      for (const { element, lineIndex } of elementsToMeasure) {
+        measurements.push({
+          lineIndex,
+          height: element.scrollHeight,
+        })
+      }
+
+      // WRITE PHASE: Restore all minHeights at once
+      for (const { element, previousMinHeight } of elementsToMeasure) {
+        element.style.minHeight = previousMinHeight
+      }
+
+      // Calculate max heights per line
+      const maxHeights: (number | undefined)[] = []
+      for (const { lineIndex, height } of measurements) {
+        const current = maxHeights[lineIndex] ?? 0
+        maxHeights[lineIndex] = Math.max(current, height) || undefined
+      }
+
+      // Fill in undefined for lines without measurements
+      for (let i = 0; i < lineCount; i++) {
+        if (maxHeights[i] === undefined) {
+          maxHeights[i] = undefined
+        }
       }
 
       // Only update if heights actually changed

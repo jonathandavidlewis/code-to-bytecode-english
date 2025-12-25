@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    exclude: ['tests/performance/**/*'],  // Performance tests run separately via test:perf
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json'],
