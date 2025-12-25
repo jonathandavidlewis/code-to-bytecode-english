@@ -5,6 +5,7 @@ import type React from "react"
 import { forwardRef, useCallback } from "react"
 import type { InstructionLine, StatementBlock } from "@/lib/bytecode/types"
 import type { LineHeightSync } from "@/hooks/use-line-height-sync"
+import { ZEBRA_COLORS, STATEMENT_HOVER_BG_COLOR, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
 
 interface BytecodeViewerProps {
   lines: InstructionLine[]
@@ -12,10 +13,12 @@ interface BytecodeViewerProps {
   onScroll?: (scrollTop: number) => void
   lineHeightSync?: LineHeightSync
   columnId?: string
+  hoveredStatementId: string | null
+  onHoverStatement: (id: string | null) => void
 }
 
 export const BytecodeViewer = forwardRef<HTMLDivElement, BytecodeViewerProps>(function BytecodeViewer(
-  { lines, statements, onScroll, lineHeightSync, columnId = "bytecode" },
+  { lines, statements, onScroll, lineHeightSync, columnId = "bytecode", hoveredStatementId, onHoverStatement },
   ref,
 ) {
   // Group lines by statement
@@ -44,12 +47,23 @@ export const BytecodeViewer = forwardRef<HTMLDivElement, BytecodeViewerProps>(fu
             const groupStartIndex = globalLineIndex
             globalLineIndex += group.lines.length
 
+            const isHovered = group.statementId === hoveredStatementId
+            const bandKey = group.colorBand === 0 ? "band0" : "band1"
+            const bgClass = isHovered
+              ? STATEMENT_HOVER_BG_COLOR[bandKey]
+              : ZEBRA_COLORS[bandKey].bg
+            const borderColorClass = isHovered
+              ? STATEMENT_HOVER_BORDER[bandKey].className
+              : STATEMENT_HOVER_BORDER[bandKey].inactiveClassName
+
             return (
               <div
                 key={group.statementId}
                 data-statement-id={group.statementId}
                 data-color-band={group.colorBand}
-                className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}
+                className={`${bgClass} ${STATEMENT_BORDER_BASE} ${borderColorClass}`}
+                onMouseEnter={() => onHoverStatement(group.statementId)}
+                onMouseLeave={() => onHoverStatement(null)}
               >
                 {group.lines.map((line, index) => {
                   const lineIndex = groupStartIndex + index

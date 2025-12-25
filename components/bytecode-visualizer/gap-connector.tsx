@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, type RefObject } from "react"
 import type { StatementBlock } from "@/lib/bytecode/types"
-import { GAP_BETWEEN_COLUMNS, ZEBRA_COLORS } from "@/lib/constants"
+import { GAP_BETWEEN_COLUMNS, ZEBRA_COLORS, STATEMENT_HOVER_BORDER } from "@/lib/constants"
 
 interface GapConnectorProps {
   leftColumnRef: RefObject<HTMLElement | null>
@@ -11,6 +11,7 @@ interface GapConnectorProps {
   scrollContainerRef: RefObject<HTMLElement | null>
   /** Optional counter to trigger re-measurement when line heights change */
   lineHeightUpdateCount?: number
+  hoveredStatementId: string | null
 }
 
 interface TrapezoidData {
@@ -32,6 +33,7 @@ export function GapConnector({
   statements,
   scrollContainerRef,
   lineHeightUpdateCount,
+  hoveredStatementId,
 }: GapConnectorProps) {
   const [trapezoids, setTrapezoids] = useState<TrapezoidData[]>([])
   const [height, setHeight] = useState(0)
@@ -151,8 +153,10 @@ export function GapConnector({
         preserveAspectRatio="none"
       >
         {trapezoids.map((trap) => {
-          const fill =
-            trap.colorBand === 0 ? ZEBRA_COLORS.band0.fill : ZEBRA_COLORS.band1.fill
+          const isHovered = trap.statementId === hoveredStatementId
+          const bandKey = trap.colorBand === 0 ? "band0" : "band1"
+          const fill = ZEBRA_COLORS[bandKey].fill
+          const stroke = isHovered ? STATEMENT_HOVER_BORDER[bandKey].stroke : "none"
 
           // Create trapezoid points:
           // - Top-left: (0, leftTop)
@@ -171,6 +175,8 @@ export function GapConnector({
               key={trap.statementId}
               points={points}
               fill={fill}
+              stroke={stroke}
+              strokeWidth={isHovered ? 1 : 0}
             />
           )
         })}

@@ -4,12 +4,15 @@ import { useState, useCallback } from "react"
 import { ChevronRight, ChevronDown } from "lucide-react"
 import type { Node as BabelNode } from "@babel/types"
 import type { StatementBlock } from "@/lib/bytecode/types"
+import { ZEBRA_COLORS, STATEMENT_HOVER_BG_COLOR, STATEMENT_HOVER_BORDER, STATEMENT_BORDER_BASE } from "@/lib/constants"
 
 interface AstViewerProps {
   statements: StatementBlock[]
+  hoveredStatementId: string | null
+  onHoverStatement: (id: string | null) => void
 }
 
-export function AstViewer({ statements }: AstViewerProps) {
+export function AstViewer({ statements, hoveredStatementId, onHoverStatement }: AstViewerProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border bg-muted px-3 py-2">
@@ -23,18 +26,29 @@ export function AstViewer({ statements }: AstViewerProps) {
           </div>
         ) : (
           <div className="font-mono text-xs">
-            {statements.map((statement) => (
-              <div
-                key={statement.id}
-                data-statement-id={statement.id}
-                data-color-band={statement.colorBand}
-                className={`border-b border-border/50 px-2 py-1 ${
-                  statement.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"
-                }`}
-              >
-                <AstNode node={statement.node} depth={0} />
-              </div>
-            ))}
+            {statements.map((statement) => {
+              const isHovered = statement.id === hoveredStatementId
+              const bandKey = statement.colorBand === 0 ? "band0" : "band1"
+              const bgClass = isHovered
+                ? STATEMENT_HOVER_BG_COLOR[bandKey]
+                : ZEBRA_COLORS[bandKey].bg
+              const borderColorClass = isHovered
+                ? STATEMENT_HOVER_BORDER[bandKey].className
+                : STATEMENT_HOVER_BORDER[bandKey].inactiveClassName
+
+              return (
+                <div
+                  key={statement.id}
+                  data-statement-id={statement.id}
+                  data-color-band={statement.colorBand}
+                  className={`border-b border-border/50 px-2 py-1 ${bgClass} ${STATEMENT_BORDER_BASE} ${borderColorClass}`}
+                  onMouseEnter={() => onHoverStatement(statement.id)}
+                  onMouseLeave={() => onHoverStatement(null)}
+                >
+                  <AstNode node={statement.node} depth={0} />
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

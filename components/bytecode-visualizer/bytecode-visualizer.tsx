@@ -20,6 +20,7 @@ console.log(sum);`
 export function BytecodeVisualizer() {
   const [source, setSource] = useState(DEFAULT_SOURCE)
   const [parseStatus, setParseStatus] = useState<ParseStatus>(() => parseSource(DEFAULT_SOURCE))
+  const [hoveredStatementId, setHoveredStatementId] = useState<string | null>(null)
 
   // Refs for column content areas
   const sourceColumnRef = useRef<HTMLDivElement>(null)
@@ -92,7 +93,7 @@ export function BytecodeVisualizer() {
       >
         {/* Column 1: Source Editor */}
         <div ref={sourceColumnRef} className="overflow-hidden">
-          <SourceEditor source={source} onChange={handleSourceChange} statements={statements} parseError={parseError} />
+          <SourceEditor source={source} onChange={handleSourceChange} statements={statements} parseError={parseError} hoveredStatementId={hoveredStatementId} onHoverStatement={setHoveredStatementId} />
         </div>
 
         {/* Gap 1: Source to AST connector */}
@@ -101,11 +102,12 @@ export function BytecodeVisualizer() {
           rightColumnRef={astColumnRef}
           statements={statements}
           scrollContainerRef={scrollContainerRef}
+          hoveredStatementId={hoveredStatementId}
         />
 
         {/* Column 2: AST Viewer */}
         <div ref={astColumnRef} className="overflow-hidden">
-          <AstViewer statements={statements} />
+          <AstViewer statements={statements} hoveredStatementId={hoveredStatementId} onHoverStatement={setHoveredStatementId} />
         </div>
 
         {/* Gap 2: AST to Bytecode connector */}
@@ -114,11 +116,12 @@ export function BytecodeVisualizer() {
           rightColumnRef={bytecodeColumnRef}
           statements={statements}
           scrollContainerRef={scrollContainerRef}
+          hoveredStatementId={hoveredStatementId}
         />
 
         {/* Column 3: Bytecode Viewer */}
         <div ref={bytecodeColumnRef} className="overflow-hidden">
-          <BytecodeViewer lines={compileResult.lines} statements={statements} lineHeightSync={lineHeightSync} columnId="bytecode" />
+          <BytecodeViewer lines={compileResult.lines} statements={statements} lineHeightSync={lineHeightSync} columnId="bytecode" hoveredStatementId={hoveredStatementId} onHoverStatement={setHoveredStatementId} />
         </div>
 
         {/* Gap 3: Bytecode to English connector */}
@@ -128,11 +131,12 @@ export function BytecodeVisualizer() {
           statements={statements}
           scrollContainerRef={scrollContainerRef}
           lineHeightUpdateCount={lineHeightSync.updateCount}
+          hoveredStatementId={hoveredStatementId}
         />
 
         {/* Column 4: English Viewer */}
         <div ref={englishColumnRef} className="overflow-hidden">
-          <EnglishViewer lines={compileResult.lines} statements={statements} lineHeightSync={lineHeightSync} columnId="english" />
+          <EnglishViewer lines={compileResult.lines} statements={statements} lineHeightSync={lineHeightSync} columnId="english" hoveredStatementId={hoveredStatementId} onHoverStatement={setHoveredStatementId} />
         </div>
       </div>
     </div>
