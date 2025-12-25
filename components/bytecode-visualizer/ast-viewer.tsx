@@ -26,6 +26,8 @@ export function AstViewer({ statements }: AstViewerProps) {
             {statements.map((statement) => (
               <div
                 key={statement.id}
+                data-statement-id={statement.id}
+                data-color-band={statement.colorBand}
                 className={`border-b border-border/50 px-2 py-1 ${
                   statement.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"
                 }`}

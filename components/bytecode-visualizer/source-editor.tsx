@@ -33,14 +33,29 @@ export function SourceEditor({ source, onChange, statements, parseError }: Sourc
 
   // Generate line backgrounds with zebra striping
   const lines = source.split("\n")
-  const lineBackgrounds = lines.map((_, lineIndex) => {
+
+  // Group consecutive lines by statement for data attributes
+  interface LineGroup {
+    statementId: string | null
+    colorBand: 0 | 1 | null
+    lines: { lineNum: number; bgClass: string }[]
+  }
+
+  const lineGroups: LineGroup[] = []
+  let currentGroup: LineGroup | null = null
+
+  lines.forEach((_, lineIndex) => {
     const lineNum = lineIndex + 1
-    // Find which statement this line belongs to
     const statement = statements.find((s) => lineNum >= s.loc.start.line && lineNum <= s.loc.end.line)
-    if (statement) {
-      return statement.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"
+    const statementId = statement?.id ?? null
+    const colorBand = statement?.colorBand ?? null
+    const bgClass = statement ? (statement.colorBand === 0 ? "bg-sky-50" : "bg-amber-50") : "bg-transparent"
+
+    if (!currentGroup || currentGroup.statementId !== statementId) {
+      currentGroup = { statementId, colorBand, lines: [] }
+      lineGroups.push(currentGroup)
     }
-    return "bg-transparent"
+    currentGroup.lines.push({ lineNum, bgClass })
   })
 
   // Check if there's an error on a specific line
@@ -59,12 +74,22 @@ export function SourceEditor({ source, onChange, statements, parseError }: Sourc
           className="pointer-events-none absolute inset-0 overflow-hidden font-mono text-sm leading-6"
           aria-hidden="true"
         >
-          {lines.map((_, index) => (
+          {lineGroups.map((group, groupIndex) => (
             <div
-              key={index}
-              className={`flex h-6 ${lineBackgrounds[index]} ${errorLine === index + 1 ? "!bg-red-100" : ""}`}
+              key={groupIndex}
+              data-statement-id={group.statementId ?? undefined}
+              data-color-band={group.colorBand ?? undefined}
             >
-              <span className="w-10 shrink-0 select-none pr-2 text-right text-muted-foreground">{index + 1}</span>
+              {group.lines.map((line) => (
+                <div
+                  key={line.lineNum}
+                  className={`flex h-6 ${line.bgClass} ${errorLine === line.lineNum ? "!bg-red-100" : ""}`}
+                >
+                  <span className="w-10 shrink-0 select-none pr-2 text-right text-muted-foreground">
+                    {line.lineNum}
+                  </span>
+                </div>
+              ))}
             </div>
           ))}
         </div>

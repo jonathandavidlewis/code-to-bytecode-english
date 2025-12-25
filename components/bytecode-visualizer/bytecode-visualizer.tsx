@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useRef } from "react"
 import { parseSource, compile } from "@/lib/bytecode"
 import type { ParseStatus, StatementBlock, ParseError } from "@/lib/bytecode/types"
 import { SourceEditor } from "./source-editor"
 import { AstViewer } from "./ast-viewer"
-import { PairedInstructionViewer } from "./paired-instruction-viewer"
+import { BytecodeViewer } from "./bytecode-viewer"
+import { EnglishViewer } from "./english-viewer"
+import { GapConnector } from "./gap-connector"
+import { GAP_BETWEEN_COLUMNS } from "@/lib/constants"
 
 const DEFAULT_SOURCE = `// Try editing this code!
 const num = 6;
@@ -16,6 +19,13 @@ console.log(sum);`
 export function BytecodeVisualizer() {
   const [source, setSource] = useState(DEFAULT_SOURCE)
   const [parseStatus, setParseStatus] = useState<ParseStatus>(() => parseSource(DEFAULT_SOURCE))
+
+  // Refs for column content areas
+  const sourceColumnRef = useRef<HTMLDivElement>(null)
+  const astColumnRef = useRef<HTMLDivElement>(null)
+  const bytecodeColumnRef = useRef<HTMLDivElement>(null)
+  const englishColumnRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Parse on source change
   const handleSourceChange = useCallback((newSource: string) => {
@@ -68,20 +78,56 @@ export function BytecodeVisualizer() {
         </p>
       </header>
 
-      <div className="grid flex-1 grid-cols-[1fr_1fr_2fr] divide-x divide-border overflow-hidden">
+      {/* Main content with 7-column grid: 4 content columns + 3 gap columns */}
+      <div
+        ref={scrollContainerRef}
+        className="grid flex-1 overflow-hidden"
+        style={{
+          gridTemplateColumns: `1fr ${GAP_BETWEEN_COLUMNS}px 1fr ${GAP_BETWEEN_COLUMNS}px 1fr ${GAP_BETWEEN_COLUMNS}px 1fr`,
+        }}
+      >
         {/* Column 1: Source Editor */}
-        <div className="overflow-hidden">
+        <div ref={sourceColumnRef} className="overflow-hidden">
           <SourceEditor source={source} onChange={handleSourceChange} statements={statements} parseError={parseError} />
         </div>
 
+        {/* Gap 1: Source to AST connector */}
+        <GapConnector
+          leftColumnRef={sourceColumnRef}
+          rightColumnRef={astColumnRef}
+          statements={statements}
+          scrollContainerRef={scrollContainerRef}
+        />
+
         {/* Column 2: AST Viewer */}
-        <div className="overflow-hidden">
+        <div ref={astColumnRef} className="overflow-hidden">
           <AstViewer statements={statements} />
         </div>
 
-        {/* Column 3: Paired Bytecode + English Viewer */}
-        <div className="overflow-hidden">
-          <PairedInstructionViewer lines={compileResult.lines} statements={statements} />
+        {/* Gap 2: AST to Bytecode connector */}
+        <GapConnector
+          leftColumnRef={astColumnRef}
+          rightColumnRef={bytecodeColumnRef}
+          statements={statements}
+          scrollContainerRef={scrollContainerRef}
+        />
+
+        {/* Column 3: Bytecode Viewer */}
+        <div ref={bytecodeColumnRef} className="overflow-hidden">
+          <BytecodeViewer lines={compileResult.lines} statements={statements} />
+        </div>
+
+        {/* Gap 3: Bytecode to English connector */}
+        <GapConnector
+          leftColumnRef={bytecodeColumnRef}
+          rightColumnRef={englishColumnRef}
+          statements={statements}
+          scrollContainerRef={scrollContainerRef}
+        />
+
+        {/* Column 4: English Viewer */}
+        <div ref={englishColumnRef} className="overflow-hidden">
+          <EnglishViewer lines={compileResult.lines} statements={statements} />
         </div>
       </div>
     </div>

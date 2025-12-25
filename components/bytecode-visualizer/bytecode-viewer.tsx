@@ -35,7 +35,12 @@ export const BytecodeViewer = forwardRef<HTMLDivElement, BytecodeViewerProps>(fu
           </div>
         ) : (
           groups.map((group) => (
-            <div key={group.statementId} className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}>
+            <div
+              key={group.statementId}
+              data-statement-id={group.statementId}
+              data-color-band={group.colorBand}
+              className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}
+            >
               {group.lines.map((line, index) => (
                 <div key={index} className="h-6 px-3">
                   <span className="text-slate-500">{String(index).padStart(2, "0")}</span>

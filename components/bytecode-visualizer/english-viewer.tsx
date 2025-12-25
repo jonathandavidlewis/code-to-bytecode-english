@@ -35,7 +35,12 @@ export const EnglishViewer = forwardRef<HTMLDivElement, EnglishViewerProps>(func
           </div>
         ) : (
           groups.map((group) => (
-            <div key={group.statementId} className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}>
+            <div
+              key={group.statementId}
+              data-statement-id={group.statementId}
+              data-color-band={group.colorBand}
+              className={`${group.colorBand === 0 ? "bg-sky-50" : "bg-amber-50"}`}
+            >
               {group.lines.map((line, index) => (
                 <div
                   key={index}
