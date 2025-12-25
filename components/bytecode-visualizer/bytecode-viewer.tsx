@@ -75,7 +75,10 @@ export const BytecodeViewer = forwardRef<HTMLDivElement, BytecodeViewerProps>(fu
                       key={index}
                       ref={(el) => lineHeightSync?.setLineRef(columnId, lineIndex, el)}
                       className="min-h-6 px-3 py-0.5"
-                      style={syncedHeight ? { minHeight: syncedHeight } : undefined}
+                      style={{
+                        ...(syncedHeight ? { minHeight: syncedHeight } : {}),
+                        boxShadow: "inset 0 -1px 0 0 #d1d5db",
+                      }}
                     >
                       <span className="text-slate-500">{String(lineIndex).padStart(2, "0")}</span>
                       <span className="mx-2 text-slate-300">|</span>

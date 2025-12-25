@@ -81,7 +81,10 @@ export const EnglishViewer = forwardRef<HTMLDivElement, EnglishViewerProps>(func
                             ? "italic text-slate-400"
                             : "text-foreground"
                       }`}
-                      style={syncedHeight ? { minHeight: syncedHeight } : undefined}
+                      style={{
+                        ...(syncedHeight ? { minHeight: syncedHeight } : {}),
+                        boxShadow: "inset 0 -1px 0 0 #d1d5db",
+                      }}
                     >
                       {line.english}
                     </div>

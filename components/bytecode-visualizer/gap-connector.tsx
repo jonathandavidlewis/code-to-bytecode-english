@@ -215,13 +215,31 @@ export function GapConnector({
           ].join(" ")
 
           return (
-            <polygon
-              key={trap.statementId}
-              points={points}
-              fill={fill}
-              stroke={stroke}
-              strokeWidth={isHovered ? 1 : 0}
-            />
+            <g key={trap.statementId}>
+              {/* Fill polygon without stroke */}
+              <polygon points={points} fill={fill} stroke="none" />
+              {/* Top and bottom stroke lines only when hovered */}
+              {isHovered && (
+                <>
+                  <line
+                    x1={0}
+                    y1={trap.leftTop}
+                    x2={GAP_BETWEEN_COLUMNS}
+                    y2={trap.rightTop}
+                    stroke={stroke}
+                    strokeWidth={1}
+                  />
+                  <line
+                    x1={0}
+                    y1={trap.leftBottom}
+                    x2={GAP_BETWEEN_COLUMNS}
+                    y2={trap.rightBottom}
+                    stroke={stroke}
+                    strokeWidth={1}
+                  />
+                </>
+              )}
+            </g>
           )
         })}
       </svg>
